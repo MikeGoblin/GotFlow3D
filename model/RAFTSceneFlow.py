@@ -35,7 +35,7 @@ class RSF_DGCNN(nn.Module):
         self.gamma = nn.Parameter(torch.zeros(1))
         self.epsilon = nn.Parameter(torch.zeros(1))
 
-    def forward(self, p, num_iters=12):
+    def forward(self, p, num_iters=12): # 一共有12个时间帧
         ## 输入与特征提取 ##
         # p是一个包含两个点云的列表，xyz1和xyz2分别表示两个点云的三维坐标
         [xyz1, xyz2] = p # B x N x 3
