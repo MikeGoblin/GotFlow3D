@@ -14,15 +14,15 @@ from torch.utils.data import Dataset
 
 class FluidflowDataset(Dataset):
     def __init__(self, npoints=2048, root='data_preprocessing/data_processed_maxcut_35_both_mask_20k_2k', partition='train'):
-        self.npoints = npoints
-        self.partition = partition
+        self.npoints = npoints # 点云样本点数
+        self.partition = partition # 'train' or 'test'
         self.root = root
         if self.partition=='train':
             self.datapath = glob.glob(os.path.join(self.root, 'TRAIN*.npz'))
         else:
             self.datapath = glob.glob(os.path.join(self.root, 'TEST*.npz'))
-        self.cache = {}
-        self.cache_size = 30000
+        self.cache = {} # 缓存数据来加速数据加载
+        self.cache_size = 30000 
 
         ###### deal with one bad datapoint with nan value
         self.datapath = [d for d in self.datapath if 'TRAIN_C_0140_left_0006-0' not in d]
@@ -32,9 +32,9 @@ class FluidflowDataset(Dataset):
         #print(self.partition, ': ',self.datapath)
 
     def __getitem__(self, index):
-        if index in self.cache:
+        if index in self.cache:  # 如果数据在缓存中，则直接读取
             pos1, pos2, color1, color2, flow = self.cache[index]
-        else:
+        else: # 否则从文件中读取
             fn = self.datapath[index]
             with open(fn, 'rb') as fp:
                 data = np.load(fp)
@@ -49,6 +49,7 @@ class FluidflowDataset(Dataset):
                 self.cache[index] = (pos1, pos2, color1, color2, flow)
 
         if self.partition == 'train':
+            # 对于训练数据，随机采样npoints个点
             n1 = pos1.shape[0]
             sample_idx1 = np.random.choice(n1, self.npoints, replace=False)
             n2 = pos2.shape[0]
@@ -61,6 +62,7 @@ class FluidflowDataset(Dataset):
             flow = flow[sample_idx1, :]
             #mask1 = mask1[sample_idx1]
         else:
+            # 对于测试数据，选择前npoints个点
             pos1 = pos1[:self.npoints, :]
             pos2 = pos2[:self.npoints, :]
             color1 = color1[:self.npoints, :]
@@ -78,7 +80,7 @@ class FluidflowDataset(Dataset):
         return len(self.datapath)
 
 
-class FluidflowDataset3D(Dataset):
+class FluidflowDataset3D(Dataset): # 这个数据集没有颜色信息，只保留点云和流动数据
     def __init__(self, npoints=2048, root='data_preprocessing/data_processed_maxcut_35_both_mask_20k_2k', partition='train'):
         self.npoints = npoints
         self.partition = partition
@@ -165,7 +167,7 @@ class FluidflowDataset3D(Dataset):
         return len(self.datapath)
 
 
-class FluidflowDataset3D_eval(Dataset):
+class FluidflowDataset3D_eval(Dataset): # 这个类与上一个类差别不大， 用于评估数据，主要是去掉了对点云数据中心化的处理
     def __init__(self, npoints=2048, root='data_preprocessing/data_processed_maxcut_35_both_mask_20k_2k', partition='train'):
         self.npoints = npoints
         self.partition = partition
