@@ -5,11 +5,12 @@ import torch.nn.functional as F
 import numpy as np
 
 
-class CorrBlock2(nn.Module):
+class CorrBlock2(nn.Module): # 用于计算点云之间的相关性特征
     def __init__(self, num_levels=3, base_scale=0.25, resolution=3, truncate_k=128, knn=32):
         super(CorrBlock2, self).__init__()
         # 截断的顶点数量，即选择相关性最高的前truncate_k个点
         self.truncate_k = truncate_k
+        # 相关性层级数量
         self.num_levels = num_levels
         
         # 局部分辨率
@@ -36,7 +37,7 @@ class CorrBlock2(nn.Module):
 
         self.knn_out = nn.Conv1d(64, 64, 1)
 
-    def init_module(self, fmap1, fmap2, xyz2, transport):
+    def init_module(self, fmap1, fmap2, xyz2, transport): # 计算并存储前truncate_k个点的相关性
         b, n_p, _ = xyz2.size()
         xyz2 = xyz2.view(b, 1, n_p, 3).expand(b, n_p, n_p, 3)
 
@@ -49,13 +50,14 @@ class CorrBlock2(nn.Module):
         indx = corr_topk.indices.reshape(b, n_p, self.truncate_k, 1).expand(b, n_p, self.truncate_k, 3)
         self.ones_matrix = torch.ones_like(self.truncated_corr)
         
+        # 从xyz2中提取相应的点云坐标
         self.truncate_xyz2 = torch.gather(xyz2, dim=2, index=indx)  # b, n_p1, k, 3
 
     def __call__(self, coords, all_delta_flow, num_iters, scale):
-        
+        # 计算相关性特征
         return self.get_adaptive_voxel_feature2(coords, all_delta_flow, num_iters, scale) + self.get_dynamic_knn_feature(coords, all_delta_flow)  ######## modified ########
     
-    def get_adaptive_voxel_feature2(self, coords, all_delta_flow, num_iters, scale):
+    def get_adaptive_voxel_feature2(self, coords, all_delta_flow, num_iters, scale): # 	计算自适应体素特征，将截断的相关性特征和体素特征结合起来
         b, n_p, _ = coords.size()
         corr_feature = []
         from torch_scatter import scatter_add
@@ -103,7 +105,7 @@ class CorrBlock2(nn.Module):
         return self.out_conv(torch.cat(corr_feature, dim=1))
 
     ######## modified ########
-    def get_dynamic_knn_feature(self, coords, all_delta_flow):
+    def get_dynamic_knn_feature(self, coords, all_delta_flow): # 计算动态K近邻特征，将截断的相关性特征和K近邻特征结合起来
         b, n_p, _ = coords.size()
 
         dist = self.truncate_xyz2 - coords.view(b, n_p, 1, 3)
@@ -127,7 +129,8 @@ class CorrBlock2(nn.Module):
         knn_feature = self.knn_conv(torch.cat([knn_corr, knn_xyz], dim=1)) # [B, C, N, K]
         knn_feature = torch.max(knn_feature, dim=3)[0] # [B, C, N]
         return self.knn_out(knn_feature)
-
+        
+    # 计算特征之间的相关性
     @staticmethod
     def calculate_corr(fmap1, fmap2):
         batch, dim, num_points = fmap1.shape
@@ -136,8 +139,9 @@ class CorrBlock2(nn.Module):
         return corr
 
     ###### *modified* ######
-    @staticmethod
+
     # 计算特征之间的归一化相关性
+    @staticmethod
     def calculate_ncc(fmap1, fmap2):
         batch, dim, num_points = fmap1.shape
         corr = torch.matmul(fmap1.transpose(1, 2), fmap2)
