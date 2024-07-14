@@ -30,6 +30,7 @@ class Trainer(object):
 
         self._log_init(mode)
 
+        # 根据数据集的类型加载到对应数据集
         if self.dataset == 'PTVflow2D':
             folder = 'sample5000_particle50_plus' # 'data_sample'
             dataset_path = os.path.join(self.root, 'data', folder)
@@ -59,6 +60,7 @@ class Trainer(object):
             self.device = ['cuda'] if torch.cuda.is_available() else ['cpu']
         self.model = model.to(self.device[0])
 
+        # 超参数
         learning_rate = 1e-3
         # weight_decay = 1e-3
         # self.optimizer = Adam(self.model.parameters(), lr=learning_rate)
@@ -82,6 +84,7 @@ class Trainer(object):
             for _ in range(self.begin_epoch):
                 self.lr_scheduler.step()
 
+        # 初始化EPE Loss
         self.best_val_epe = 10
 
     def _log_init(self, mode='Train'):
@@ -219,6 +222,8 @@ class Trainer(object):
                     np.array(rmse_train2).mean() ###### *modified* ######
                 ))
 
+
+    # 使用 EPE 和 RMSE loss 作为指标来评估
     def val_test(self, epoch=0, mode='val'):
         self.model.eval()
 
