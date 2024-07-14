@@ -13,15 +13,17 @@ class MotionEncoder(nn.Module):
         self.conv = nn.Conv1d(64+64, 64-3, 1)
 
     def forward(self, flow, corr):
-        cor = F.relu(self.conv_corr(corr))
+        # flow和corr分别是流动信息和相关性信息，将两者进行编码与合并
+        cor = F.relu(self.conv_corr(corr)) 
         flo = F.relu(self.conv_flow(flow.transpose(1, 2).contiguous()))
         cor_flo = torch.cat([cor, flo], dim=1)
         out_conv = F.relu(self.conv(cor_flo))
+        # 最终输出将out_conv和原始的流动信息结合
         out = torch.cat([out_conv, flow.transpose(1, 2).contiguous()], dim=1)
         return out
 
 
-class ConvGRU(nn.Module):
+class ConvGRU(nn.Module): # 处理时序的GRU
     def __init__(self, input_dim=128, hidden_dim=64):
         super(ConvGRU, self).__init__()
         self.convz = nn.Conv1d(input_dim+hidden_dim, hidden_dim, 1)
@@ -29,8 +31,8 @@ class ConvGRU(nn.Module):
         self.convq = nn.Conv1d(input_dim+hidden_dim, hidden_dim, 1)
 
     def forward(self, h, x):
+        # h是隐藏状态，x是输入
         hx = torch.cat([h, x], dim=1)
-
         z = torch.sigmoid(self.convz(hx))
         r = torch.sigmoid(self.convr(hx))
         rh_x = torch.cat([r*h, x], dim=1)
@@ -40,7 +42,7 @@ class ConvGRU(nn.Module):
         return h
 
 
-class ConvRNN(nn.Module):
+class ConvRNN(nn.Module): # 用来和GRU做对比
     def __init__(self, input_dim=128, hidden_dim=64):
         super(ConvRNN, self).__init__()
         self.convx = nn.Conv1d(input_dim, hidden_dim, 1)
@@ -54,7 +56,7 @@ class ConvRNN(nn.Module):
         return h
 
 
-class FlowHead(nn.Module):
+class FlowHead(nn.Module): # 用来输出最终的流动估计
     def __init__(self, input_dim=128):
         super(FlowHead, self).__init__()
         self.conv1 = nn.Conv1d(input_dim, 64, 1)
@@ -72,7 +74,7 @@ class FlowHead(nn.Module):
         return out
 
 
-class UpdateBlock(nn.Module):
+class UpdateBlock(nn.Module): # 用来更新流动估计的模块，结合了上述所有模块
     def __init__(self, input_dim=128, hidden_dim=64):
         super(UpdateBlock, self).__init__()
         self.motion_encoder = MotionEncoder()
