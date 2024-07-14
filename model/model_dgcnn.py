@@ -14,8 +14,8 @@ from model.flot.graph import ParGraph
 def knn(x, k):
     inner = -2*torch.matmul(x.transpose(2, 1), x)
     xx = torch.sum(x**2, dim=1, keepdim=True)
+    # 计算成对距离的平方，使用负号是为了方便使用topk来选择最小距离
     pairwise_distance = -xx - inner - xx.transpose(2, 1)
- 
     idx = pairwise_distance.topk(k=k, dim=-1)[1]   
     return idx
 
@@ -24,7 +24,7 @@ def get_graph_feature(x, k=20, idx=None, dim9=False):
     batch_size = x.size(0)
     num_points = x.size(2)
     x = x.view(batch_size, -1, num_points)
-    if idx is None:
+    if idx is None: # 计算每个点的K近邻并获取对应的索引
         if dim9 == False:
             idx = knn(x, k=k)   
         else:
@@ -44,6 +44,7 @@ def get_graph_feature(x, k=20, idx=None, dim9=False):
     feature = feature.view(batch_size, num_points, k, num_dims) 
     x = x.view(batch_size, num_points, 1, num_dims).repeat(1, 1, k, 1)
     
+    # 通过索引构建特征矩阵，将特征与其邻居特征进行连接
     feature = torch.cat((feature-x, x), dim=3).permute(0, 3, 1, 2).contiguous()
   
     return feature      
@@ -53,7 +54,7 @@ class GeoDGCNN_flow2(nn.Module):
     def __init__(self, k, emb_dims, dropout):
         super(GeoDGCNN_flow2, self).__init__()
         # self.args = args
-        self.k = k
+        self.k = k # k邻居的数量
         self.emb_dims = emb_dims
         self.dropout = dropout
         
@@ -94,9 +95,10 @@ class GeoDGCNN_flow2(nn.Module):
         self.feat_conv3 = GeoSetConv(64, 96)
         
 
-    def forward(self, x):
-
+    def forward(self, x): # 这个前向传播比较绕
+        # 创建点云的图结构
         geo_graph = ParGraph.construct_graph(x, self.k)
+        # 3次图卷积
         g1 = self.feat_conv1(x, geo_graph)     # B x nb_feat_out x N
         g2 = self.feat_conv2(g1, geo_graph)
         g3 = self.feat_conv3(g2, geo_graph)
