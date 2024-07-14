@@ -8,16 +8,24 @@ import numpy as np
 class CorrBlock2(nn.Module):
     def __init__(self, num_levels=3, base_scale=0.25, resolution=3, truncate_k=128, knn=32):
         super(CorrBlock2, self).__init__()
+        # 截断的顶点数量，即选择相关性最高的前truncate_k个点
         self.truncate_k = truncate_k
         self.num_levels = num_levels
+        
+        # 局部分辨率
         self.resolution = resolution  # local resolution
+
+        # 基础比例，用于确定搜索范围
         self.base_scale = base_scale  # search (base_sclae * resolution)^3 cube
+
         self.out_conv = nn.Sequential(
             nn.Conv1d((self.resolution ** 3) * self.num_levels, 128, 1),
             nn.GroupNorm(8, 128),
             nn.PReLU(),
             nn.Conv1d(128, 64, 1)
         )
+
+        # K近邻点的数量
         self.knn = knn # 32
 
         self.knn_conv = nn.Sequential(
@@ -129,6 +137,7 @@ class CorrBlock2(nn.Module):
 
     ###### *modified* ######
     @staticmethod
+    # 计算特征之间的归一化相关性
     def calculate_ncc(fmap1, fmap2):
         batch, dim, num_points = fmap1.shape
         corr = torch.matmul(fmap1.transpose(1, 2), fmap2)
